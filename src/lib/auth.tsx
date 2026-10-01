@@ -90,6 +90,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error?.message ?? null };
     },
     async signUp(email, password, fullName, registrationNumber) {
+      const { data: registrationAvailable, error: registrationCheckError } = await supabase.rpc(
+        "is_registration_available",
+        { reg_code: registrationNumber.trim() }
+      );
+      if (registrationCheckError) {
+        return { error: "Não foi possível validar a matrícula. Tente novamente." };
+      }
+      if (registrationAvailable === false) {
+        return { error: "Esta matrícula já está cadastrada. Use o e-mail da conta existente ou informe outra matrícula." };
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -100,7 +111,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         },
       });
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.message.includes("uq_profiles_registration_student") || error.message.toLowerCase().includes("duplicate key")) {
+          return { error: "Esta matrícula já está cadastrada. Use o e-mail da conta existente ou informe outra matrícula." };
+        }
+        if (error.message.toLowerCase().includes("user already registered")) {
+          return { error: "Este e-mail já está cadastrado. Faça login ou use outro e-mail." };
+        }
+        return { error: error.message };
+      }
       if (data.user) {
         for (let i = 0; i < 5; i++) {
           await new Promise((r) => setTimeout(r, 300));
