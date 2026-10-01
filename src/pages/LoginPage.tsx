@@ -5,23 +5,35 @@ import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui";
 
 export function LoginPage() {
-  const { signInWithIdentifier, signUp } = useAuth();
+  const { signInWithIdentifier, signUp, requestPasswordReset } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
     try {
+      if (mode === "forgot") {
+        if (!email.trim()) {
+          setError("Informe o e-mail da sua conta.");
+          return;
+        }
+        const { error } = await requestPasswordReset(email.trim());
+        if (error) setError("Não foi possível enviar o link. Confira o e-mail informado.");
+        else setSuccess("Se esse e-mail estiver cadastrado, enviaremos um link para criar uma nova senha.");
+        return;
+      }
       if (mode === "login") {
         const { error } = await signInWithIdentifier(identifier.trim(), password);
         if (error) setError(error);
@@ -54,9 +66,10 @@ export function LoginPage() {
     }
   }
 
-  function switchMode(newMode: "login" | "signup") {
+  function switchMode(newMode: "login" | "signup" | "forgot") {
     setMode(newMode);
     setError(null);
+    setSuccess(null);
   }
 
   const inputClass = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 pl-10 pr-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
@@ -136,6 +149,8 @@ export function LoginPage() {
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {mode === "login"
                 ? "Use seu e-mail ou número de matrícula."
+                : mode === "forgot"
+                ? "Informe o e-mail cadastrado para receber um link de recuperação."
                 : "O cadastro público é exclusivo para alunos. Demais perfis são criados pela CTES."}
             </p>
 
@@ -188,6 +203,17 @@ export function LoginPage() {
                 </>
               )}
 
+              {/* Recovery email */}
+              {mode === "forgot" && (
+                <div>
+                  <label className={labelClass}>E-mail da conta</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClass} placeholder="seu@email.com" />
+                  </div>
+                </div>
+              )}
+
               {/* Login — single identifier field */}
               {mode === "login" && (
                 <div>
@@ -206,8 +232,8 @@ export function LoginPage() {
                 </div>
               )}
 
-              {/* Password — always shown */}
-              <div>
+              {/* Password — login and signup */}
+              {mode !== "forgot" && <div>
                 <label className={labelClass}>Senha</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -229,18 +255,31 @@ export function LoginPage() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
+              </div>}
 
               {error && (
                 <div className="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-400">
                   {error}
                 </div>
               )}
+              {success && (
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+                  {success}
+                </div>
+              )}
 
               <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+                {loading ? "Aguarde..." : mode === "login" ? "Entrar" : mode === "forgot" ? "Enviar link de recuperação" : "Criar conta"}
               </Button>
             </form>
+
+            {mode === "login" && (
+              <div className="mt-4 text-center">
+                <button onClick={() => switchMode("forgot")} className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline">
+                  Esqueci minha senha
+                </button>
+              </div>
+            )}
 
             <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
               {mode === "login" ? (
@@ -251,6 +290,13 @@ export function LoginPage() {
                     className="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
                   >
                     Cadastre-se
+                  </button>
+                </>
+              ) : mode === "forgot" ? (
+                <>
+                  Lembrou a senha?{" "}
+                  <button onClick={() => switchMode("login")} className="font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">
+                    Voltar para entrar
                   </button>
                 </>
               ) : (

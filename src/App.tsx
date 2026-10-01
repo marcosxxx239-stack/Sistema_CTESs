@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { LoginPage } from "@/pages/LoginPage";
+import { PasswordRecoveryPage } from "@/pages/PasswordRecoveryPage";
 import { AppLayout, type PageKey } from "@/components/AppLayout";
 import { StudentDashboard } from "@/pages/StudentDashboard";
 import { CtesDashboard } from "@/pages/CtesDashboard";
@@ -40,7 +41,7 @@ function isPageAllowed(role: Role, page: PageKey): boolean {
 }
 
 function AppContent() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, passwordRecovery } = useAuth();
   const [page, setPage] = useState<PageKey>("dashboard");
   const [ctx, setCtx] = useState<Record<string, string>>({});
 
@@ -69,6 +70,10 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  if (passwordRecovery) {
+    return <PasswordRecoveryPage />;
   }
 
   if (!session || !profile) {

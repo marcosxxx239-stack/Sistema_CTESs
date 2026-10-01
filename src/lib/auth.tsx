@@ -13,8 +13,11 @@ interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  passwordRecovery: boolean;
   signInWithIdentifier: (identifier: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string, registrationNumber: string) => Promise<{ error: string | null }>;
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -25,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   async function loadProfile(uid: string) {
     const { data, error } = await supabase
@@ -51,7 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       setSession(newSession);
       if (newSession?.user) {
         setLoading(true);
@@ -76,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     profile,
     loading,
+    passwordRecovery,
     async signInWithIdentifier(identifier, password) {
       let email = identifier.trim();
       if (!isEmail(email)) {
@@ -135,6 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       return { error: null };
+    },
+    async requestPasswordReset(email) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin,
+      });
+      return { error: error?.message ?? null };
+    },
+    async updatePassword(password) {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (!error) setPasswordRecovery(false);
+      return { error: error?.message ?? null };
     },
     async signOut() {
       await supabase.auth.signOut();
