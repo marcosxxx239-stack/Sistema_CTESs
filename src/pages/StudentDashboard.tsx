@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { AlertCircle, ArrowRight, Calendar, Check, ClipboardList, Clock } from "lucide-react";
+import { AlertCircle, ArrowRight, Calendar, Check, CheckCircle2, ClipboardList, FileText, FolderOpen } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useStudentRequests, useDeadlines } from "@/lib/hooks";
-import { Card, PageHeader, Button, EmptyState, Spinner } from "@/components/ui";
+import { Card, PageHeader, Button, Spinner } from "@/components/ui";
 import { StatusBadge } from "@/components/StatusBadge";
-import { STATUS_META, formatDate, daysUntil } from "@/lib/constants";
+import { formatDate, daysUntil } from "@/lib/constants";
 import type { EnrollmentRequest, RequestStatus } from "@/lib/types";
 import type { PageKey } from "@/components/AppLayout";
 
@@ -37,23 +37,23 @@ export function StudentDashboard({ onNavigate }: { onNavigate: (k: PageKey, ctx?
   const { deadlines } = useDeadlines();
 
   const activeRequest = useMemo(() => {
-    return requests.find((request) => !["finalizado", "rejeitado"].includes(request.status)) ?? requests[0] ?? null;
+    return requests.find((r) => !["finalizado", "rejeitado"].includes(r.status)) ?? requests[0] ?? null;
   }, [requests]);
 
   const correctionRequest = useMemo(
-    () => requests.find((request) => request.status === "aguardando_correcao"),
+    () => requests.find((r) => r.status === "aguardando_correcao"),
     [requests]
   );
 
   const upcomingDeadlines = useMemo(() => {
     return deadlines
-      .map((deadline) => ({ ...deadline, days: daysUntil(deadline.due_date) }))
-      .filter((deadline) => deadline.days !== null && deadline.days >= 0 && deadline.days <= 30)
+      .map((d) => ({ ...d, days: daysUntil(d.due_date) }))
+      .filter((d) => d.days !== null && d.days >= 0 && d.days <= 30)
       .sort((a, b) => (a.days ?? 0) - (b.days ?? 0))
       .slice(0, 5);
   }, [deadlines]);
 
-  const recentRequests = requests.slice(0, 5);
+  const hasPending = correctionRequest !== undefined || upcomingDeadlines.length > 0;
 
   if (loading) {
     return (
@@ -70,6 +70,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate: (k: PageKey, ctx?
         subtitle="Acompanhe seu processo acadêmico em um só lugar."
       />
 
+      {/* Card principal de status */}
       <Card className="mb-6 overflow-hidden border-emerald-200 dark:border-emerald-900/60">
         {activeRequest ? (
           <>
@@ -121,70 +122,101 @@ export function StudentDashboard({ onNavigate }: { onNavigate: (k: PageKey, ctx?
         )}
       </Card>
 
-      {correctionRequest && (
-        <Card className="mb-6 border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20">
-          <div className="flex items-start gap-3 p-5">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600 dark:text-orange-400" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Ação necessária</h3>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Existe uma solicitação aguardando correção. Revise os detalhes para continuar.</p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => onNavigate("request-detail", { id: correctionRequest.id })}>Revisar agora</Button>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Solicitações recentes</h2>
-            <Button variant="ghost" size="sm" onClick={() => onNavigate("requests")}>Ver todas</Button>
-          </div>
-          <div className="p-2">
-            {recentRequests.length === 0 ? (
-              <EmptyState icon={<ClipboardList className="h-10 w-10" />} title="Nenhuma solicitação ainda" description="Inicie uma solicitação de matrícula em uma atividade." action={<Button size="sm" onClick={() => onNavigate("activities")}>Ver atividades</Button>} />
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {recentRequests.map((request) => (
-                  <button key={request.id} onClick={() => onNavigate("request-detail", { id: request.id })} className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{request.activity?.name}</p>
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{request.activity?.code} · {formatDate(request.created_at)}</p>
-                    </div>
-                    <StatusBadge status={request.status} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Próximos prazos</h2>
-            <Button variant="ghost" size="sm" onClick={() => onNavigate("deadlines")}>Ver todos</Button>
-          </div>
-          <div className="p-2">
-            {upcomingDeadlines.length === 0 ? (
-              <EmptyState icon={<Calendar className="h-10 w-10" />} title="Nenhum prazo próximo" description="Não há prazos vencendo nos próximos 30 dias." />
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {upcomingDeadlines.map((deadline) => (
-                  <div key={deadline.id} className="flex items-center justify-between px-3 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{deadline.title}</p>
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{formatDate(deadline.due_date)}</p>
-                    </div>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${deadline.days! <= 7 ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" : deadline.days! <= 15 ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
-                      {deadline.days === 0 ? "Hoje" : `${deadline.days}d`}
-                    </span>
+      {/* Bloco de avisos e prazos */}
+      <Card className="mb-6">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+          <Calendar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <h2 className="font-semibold text-gray-900 dark:text-gray-100">Avisos e prazos</h2>
+        </div>
+        <div className="p-5">
+          {hasPending ? (
+            <div className="space-y-3">
+              {correctionRequest && (
+                <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50/60 p-3 dark:border-orange-800 dark:bg-orange-950/20">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Solicitação aguardando correção</p>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{correctionRequest.activity?.name}</p>
                   </div>
-                ))}
+                  <Button variant="outline" size="sm" onClick={() => onNavigate("request-detail", { id: correctionRequest.id })}>Revisar</Button>
+                </div>
+              )}
+              {upcomingDeadlines.map((d) => (
+                <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{d.title}</p>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      Prazo limite: {formatDate(d.due_date)}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${d.days! <= 7 ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" : d.days! <= 15 ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}>
+                    {d.days === 0 ? "Hoje" : `${d.days}d`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
-            )}
-          </div>
-        </Card>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sua situação acadêmica está em dia.</p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Painel de ações rápidas */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <QuickAction
+          icon={<ClipboardList className="h-7 w-7" />}
+          label="Nova Solicitação de Matrícula"
+          description="Inicie uma nova matrícula em atividade acadêmica."
+          onClick={() => onNavigate("activities")}
+        />
+        <QuickAction
+          icon={<FileText className="h-7 w-7" />}
+          label="Submeter Manuscrito / Relatório"
+          description="Envie seu documento em PDF para análise."
+          onClick={() => onNavigate("documents")}
+        />
+        <QuickAction
+          icon={<FolderOpen className="h-7 w-7" />}
+          label="Modelos Oficiais da CTES"
+          description="Acesse e baixe os modelos e formulários oficiais."
+          onClick={() => onNavigate("library")}
+        />
       </div>
     </div>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col items-start gap-3 rounded-xl border border-gray-200 bg-white p-5 text-left transition-all hover:border-emerald-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-emerald-700"
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-colors group-hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:group-hover:bg-emerald-900/50">
+        {icon}
+      </div>
+      <div>
+        <p className="font-semibold text-gray-900 dark:text-gray-100">{label}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
+      </div>
+      <span className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+        Acessar <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </button>
   );
 }
