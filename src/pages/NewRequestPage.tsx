@@ -15,6 +15,8 @@ import {
   Send,
   Download,
   Lock,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useActivities, useStudentRequests, useProfiles } from "@/lib/hooks";
@@ -742,7 +744,7 @@ function FileUploadArea({
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 transition-colors">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
         {showDownloadModel && (
@@ -756,35 +758,75 @@ function FileUploadArea({
       </div>
 
       {fileState ? (
-        <div className="flex items-center justify-between rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2.5">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <div className="flex items-center justify-between rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 px-4 py-3 animate-in fade-in zoom-in duration-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+              <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{fileState.file.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{fileState.sizeMB} MB</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{fileState.file.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
+                <span className="inline-flex items-center rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-1.5 py-0.5 text-[10px] font-bold uppercase">PDF</span>
+                {fileState.sizeMB} MB
+              </p>
             </div>
           </div>
-          <button
-            onClick={onRemove}
-            className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 shrink-0 ml-3"
-          >
-            <X className="h-3.5 w-3.5" /> Remover
-          </button>
+          <div className="flex items-center gap-1 shrink-0 ml-3">
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Trocar
+            </button>
+            <button
+              onClick={onRemove}
+              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Remover
+            </button>
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              onSelect(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
         </div>
       ) : (
         <label
-          className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 py-6 transition-colors hover:border-emerald-400 dark:hover:border-emerald-600"
-          onClick={() => inputRef.current?.click()}
+          className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 py-7 transition-colors hover:border-emerald-400 hover:bg-emerald-50/30 dark:hover:border-emerald-600 dark:hover:bg-emerald-900/10"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.currentTarget.classList.add("border-emerald-500", "bg-emerald-50/30", "dark:bg-emerald-900/10");
+          }}
+          onDragLeave={(e) => {
+            e.currentTarget.classList.remove("border-emerald-500", "bg-emerald-50/30", "dark:bg-emerald-900/10");
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.currentTarget.classList.remove("border-emerald-500", "bg-emerald-50/30", "dark:bg-emerald-900/10");
+            const file = e.dataTransfer.files?.[0];
+            if (file) onSelect(file);
+          }}
         >
-          <Upload className="h-6 w-6 text-gray-400 mb-1.5" />
-          <span className="text-sm text-gray-500 dark:text-gray-400">Clique para selecionar um arquivo PDF</span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 mb-2">
+            <Upload className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+          </div>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Clique para selecionar ou arraste um arquivo PDF</span>
           <span className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Máx. 10MB</span>
           <input
             ref={inputRef}
             type="file"
             accept="application/pdf"
             className="hidden"
-            onChange={(e) => onSelect(e.target.files?.[0])}
+            onChange={(e) => {
+              onSelect(e.target.files?.[0]);
+              e.target.value = "";
+            }}
           />
         </label>
       )}
