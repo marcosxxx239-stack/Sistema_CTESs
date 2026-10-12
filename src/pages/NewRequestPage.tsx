@@ -14,6 +14,7 @@ import {
   Users,
   Send,
   Download,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useActivities, useStudentRequests, useProfiles } from "@/lib/hooks";
@@ -21,10 +22,44 @@ import { checkPrerequisite, addHistoryEntry, uploadDocument } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { Card, PageHeader, Button, Spinner, Input, Select } from "@/components/ui";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { Activity, Profile } from "@/lib/types";
+import type { Activity, Profile, EnrollmentRequest } from "@/lib/types";
 import type { PageKey } from "@/components/AppLayout";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const APPROVED_STATUSES = ["aprovado", "finalizado"];
+
+interface ActivityAvailability {
+  ok: boolean;
+  reason: string | null;
+}
+
+function checkActivityAvailability(
+  activity: Activity,
+  allRequests: EnrollmentRequest[],
+  allActivities: Activity[]
+): ActivityAvailability {
+  if (!activity.prerequisite_activity_id) {
+    return { ok: true, reason: null };
+  }
+
+  const prereqActivity = allActivities.find((a) => a.id === activity.prerequisite_activity_id);
+  if (!prereqActivity) {
+    return { ok: true, reason: null };
+  }
+
+  const prereqRequest = allRequests.find(
+    (r) => r.activity_id === prereqActivity.id
+  );
+
+  if (!prereqRequest || !APPROVED_STATUSES.includes(prereqRequest.status)) {
+    return {
+      ok: false,
+      reason: `Pré-requisito pendente: Você precisa ser aprovado em ${prereqActivity.code} para se matricular em ${activity.code}.`,
+    };
+  }
+
+  return { ok: true, reason: null };
+}
 
 const ESO_DOC_FIELDS = [
   { key: "anexo01", label: "Ficha de Inscrição (Anexo 01)" },
@@ -184,6 +219,11 @@ export function NewRequestPage({
   function canAdvance(): boolean {
     if (step === 0) {
       if (!data.activityId) return false;
+      if (selectedActivity) {
+        const availability = checkActivityAvailability(selectedActivity, requests, activities);
+        if (!availability.ok) return false;
+        if (requests.some((r) => r.activity_id === selectedActivity.id)) return false;
+      }
       if (isTCC && data.modality === "dupla") {
         if (!data.partner.name.trim() || !data.partner.registration.trim()) return false;
       }
@@ -393,33 +433,50 @@ export function NewRequestPage({
 
           {/* Activity cards */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-            {activities.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => updateData("activityId", a.id)}
-                className={`flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all ${
-                  data.activityId === a.id
-                    ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20"
-                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                }`}
-              >
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold ${a.category === "ESO" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"}`}>
-                  {a.category}
+            {activities.map((a) => {
+              const availability = checkActivityAvailability(a, requests, activities);
+              const hasExisting = requests.some((r) => r.activity_id === a.id);
+              const isDisabled = !availability.ok || hasExisting;
+              const isSelected = data.activityId === a.id;
+              return (
+                <div
+                  key={a.id}
+                  onClick={() => {
+                    if (!isDisabled) updateData("activityId", a.id);
+                  }}
+                  className={`flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all ${
+                    isDisabled
+                      ? "border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed"
+                      : isSelected
+                      ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20 cursor-pointer"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold ${a.category === "ESO" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"}`}>
+                      {a.category}
+                    </div>
+                    {isDisabled && (
+                      <Lock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{a.code}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{a.name}</p>
+                  </div>
+                  {hasExisting && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Você já possui uma solicitação para esta atividade.</p>
+                  )}
+                  {!availability.ok && !hasExisting && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 flex items-start gap-1">
+                      <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                      {availability.reason}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{a.code}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{a.name}</p>
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
-
-          {requests.find((r) => r.activity_id === data.activityId) && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>Você já possui uma solicitação para esta atividade.</span>
-            </div>
-          )}
 
           {/* TCC modality */}
           {isTCC && (
