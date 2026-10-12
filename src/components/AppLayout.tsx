@@ -31,6 +31,7 @@ export type PageKey =
   | "requests"
   | "request-detail"
   | "new-request"
+  | "new-request-wizard"
   | "form"
   | "documents"
   | "library"

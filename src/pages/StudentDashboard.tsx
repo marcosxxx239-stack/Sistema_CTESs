@@ -172,7 +172,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate: (k: PageKey, ctx?
           icon={<ClipboardList className="h-7 w-7" />}
           label="Nova Solicitação de Matrícula"
           description="Inicie uma nova matrícula em atividade acadêmica."
-          onClick={() => onNavigate("activities")}
+          onClick={() => onNavigate("new-request-wizard")}
         />
         <QuickAction
           icon={<FileText className="h-7 w-7" />}

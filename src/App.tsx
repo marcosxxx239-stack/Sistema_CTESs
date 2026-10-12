@@ -99,6 +99,9 @@ function AppContent() {
       case "new-request":
         return <NewRequestPage activityId={ctx.activityId} onNavigate={navigate} />;
 
+      case "new-request-wizard":
+        return <NewRequestPage onNavigate={navigate} />;
+
       case "form":
         return <FormPage requestId={ctx.id} onNavigate={navigate} />;
 
