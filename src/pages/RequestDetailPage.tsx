@@ -13,6 +13,7 @@ import {
   Edit3,
   History as HistoryIcon,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -69,12 +70,14 @@ export function RequestDetailPage({
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newStatus, setNewStatus] = useState<RequestStatus>("em_analise");
   const [justification, setJustification] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
   const [correctionDescription, setCorrectionDescription] = useState("");
   const [correctionDoc, setCorrectionDoc] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [docUrls, setDocUrls] = useState<Record<string, string>>({});
@@ -124,6 +127,27 @@ export function RequestDetailPage({
         </div>
       </Card>
     );
+  }
+
+  async function handleDeleteDraft() {
+    if (!profile || !request) return;
+    setDeleting(true);
+
+    await supabase.from("documents").delete().eq("request_id", request.id);
+    await supabase.from("form_submissions").delete().eq("request_id", request.id);
+    await supabase.from("request_history").delete().eq("request_id", request.id);
+    await supabase.from("advisor_assignments").delete().eq("activity_id", request.activity_id).eq("student_id", profile.id);
+    await supabase.from("supervisor_assignments").delete().eq("activity_id", request.activity_id).eq("student_id", profile.id);
+
+    const { error } = await supabase.from("enrollment_requests").delete().eq("id", request.id);
+
+    if (error) {
+      setDeleting(false);
+      return;
+    }
+
+    setDeleting(false);
+    onNavigate("requests");
   }
 
   async function handleStatusChange() {
@@ -681,6 +705,26 @@ export function RequestDetailPage({
               </div>
             </Card>
           )}
+
+          {/* Student delete draft action */}
+          {isStudent && request.status === "rascunho" && (
+            <Card className="border-red-200 dark:border-red-800">
+              <div className="p-5">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Excluir solicitação</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Esta solicitação ainda é um rascunho. Você pode excluí-la permanentemente.
+                </p>
+                <Button
+                  variant="danger"
+                  className="w-full"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir rascunho
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -772,6 +816,31 @@ export function RequestDetailPage({
               className="bg-orange-600 hover:bg-orange-700 text-white border-orange-600"
             >
               {saving ? "Enviando..." : "Solicitar correção"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete draft confirmation modal */}
+      <Modal
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Excluir rascunho"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">
+              Tem certeza que deseja excluir esta solicitação de{" "}
+              <span className="font-semibold">{request?.activity?.name}</span>? Esta ação não poderá ser desfeita.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handleDeleteDraft} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir rascunho"}
             </Button>
           </div>
         </div>

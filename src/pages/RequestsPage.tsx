@@ -1,18 +1,44 @@
 import { useState, useMemo } from "react";
-import { ClipboardList, Search, Filter, ArrowRight } from "lucide-react";
+import { ClipboardList, Search, Filter, ArrowRight, Trash2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useStudentRequests, useAllRequests } from "@/lib/hooks";
-import { Card, PageHeader, Button, EmptyState, Spinner, Input, Select } from "@/components/ui";
+import { supabase } from "@/lib/supabase";
+import { addHistoryEntry } from "@/lib/api";
+import { Card, PageHeader, Button, EmptyState, Spinner, Input, Select, Modal } from "@/components/ui";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_META, formatDate, ROLE_META } from "@/lib/constants";
-import type { RequestStatus } from "@/lib/types";
+import type { RequestStatus, EnrollmentRequest } from "@/lib/types";
 import type { PageKey } from "@/components/AppLayout";
 
 export function RequestsPage({ onNavigate }: { onNavigate: (k: PageKey, ctx?: Record<string, string>) => void }) {
   const { profile } = useAuth();
-  const { requests, loading } = useStudentRequests(profile?.id);
+  const { requests, loading, reload } = useStudentRequests(profile?.id);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deleteTarget, setDeleteTarget] = useState<EnrollmentRequest | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDeleteDraft() {
+    if (!profile || !deleteTarget) return;
+    setDeleting(true);
+
+    await supabase.from("documents").delete().eq("request_id", deleteTarget.id);
+    await supabase.from("form_submissions").delete().eq("request_id", deleteTarget.id);
+    await supabase.from("request_history").delete().eq("request_id", deleteTarget.id);
+    await supabase.from("advisor_assignments").delete().eq("activity_id", deleteTarget.activity_id).eq("student_id", profile.id);
+    await supabase.from("supervisor_assignments").delete().eq("activity_id", deleteTarget.activity_id).eq("student_id", profile.id);
+
+    const { error } = await supabase.from("enrollment_requests").delete().eq("id", deleteTarget.id);
+
+    if (error) {
+      setDeleting(false);
+      return;
+    }
+
+    await reload();
+    setDeleting(false);
+    setDeleteTarget(null);
+  }
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
@@ -88,12 +114,14 @@ export function RequestsPage({ onNavigate }: { onNavigate: (k: PageKey, ctx?: Re
         <Card>
           <div className="divide-y divide-gray-100 dark:divide-gray-700">
             {filtered.map((r) => (
-              <button
+              <div
                 key={r.id}
-                onClick={() => onNavigate("request-detail", { id: r.id })}
                 className="flex items-center justify-between w-full px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
               >
-                <div className="flex items-center gap-4 min-w-0">
+                <button
+                  onClick={() => onNavigate("request-detail", { id: r.id })}
+                  className="flex items-center gap-4 min-w-0 flex-1"
+                >
                   <div
                     className={`flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${
                       r.activity?.category === "ESO" ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
@@ -107,16 +135,53 @@ export function RequestsPage({ onNavigate }: { onNavigate: (k: PageKey, ctx?: Re
                       {r.activity?.code} · Criada em {formatDate(r.created_at)}
                     </p>
                   </div>
-                </div>
+                </button>
                 <div className="flex items-center gap-3 shrink-0">
                   <StatusBadge status={r.status} />
+                  {r.status === "rascunho" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(r);
+                      }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                      title="Excluir rascunho"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600" />
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </Card>
       )}
+
+      {/* Delete draft confirmation modal */}
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Excluir rascunho"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-400">
+              Tem certeza que deseja excluir esta solicitação de{" "}
+              <span className="font-semibold">{deleteTarget?.activity?.name}</span>? Esta ação não poderá ser desfeita.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handleDeleteDraft} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir rascunho"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
