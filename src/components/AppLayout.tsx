@@ -60,12 +60,8 @@ function navForRole(role: Role): NavItem[] {
     case "student":
       return [
         ...common,
-        { key: "activities", label: "Atividades", icon: <BookOpen className="w-5 h-5" /> },
-        { key: "requests", label: "Solicitações", icon: <ClipboardList className="w-5 h-5" /> },
-        { key: "documents", label: "Documentos", icon: <FolderOpen className="w-5 h-5" /> },
+        { key: "requests", label: "Solicitações", icon: <FileText className="w-5 h-5" /> },
         { key: "deadlines", label: "Prazos", icon: <Calendar className="w-5 h-5" /> },
-        { key: "notifications", label: "Notificações", icon: <Bell className="w-5 h-5" /> },
-        { key: "history", label: "Histórico", icon: <History className="w-5 h-5" /> },
         { key: "profile", label: "Perfil", icon: <User className="w-5 h-5" /> },
       ];
     case "ctes":
