@@ -225,8 +225,10 @@ export function AppLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Sidebar - desktop */}
-      <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+      {/* Sidebar - desktop (collapsible, hover to expand) */}
+      <aside
+        className="hidden lg:flex flex-col fixed inset-y-0 z-50 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 w-20 hover:w-64 transition-all duration-300 ease-in-out overflow-hidden group shadow-sm hover:shadow-xl"
+      >
         <SidebarContent
           items={items}
           current={current}
@@ -249,13 +251,14 @@ export function AppLayout({
               profile={profile}
               roleLabel={roleMeta.label}
               onSignOut={signOut}
+              expanded
             />
           </aside>
         </div>
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
+      <div className="flex-1 lg:ml-20 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between px-4 lg:px-8 h-16">
@@ -305,6 +308,7 @@ function SidebarContent({
   profile,
   roleLabel,
   onSignOut,
+  expanded = false,
 }: {
   items: NavItem[];
   current: PageKey;
@@ -312,45 +316,67 @@ function SidebarContent({
   profile: { full_name: string; email: string };
   roleLabel: string;
   onSignOut: () => void;
+  expanded?: boolean;
 }) {
   return (
     <>
-      <div className="flex items-center gap-3 px-5 h-16 border-b border-gray-200 dark:border-gray-700">
+      {/* Header: icon always visible, text on hover/expansion */}
+      <div className="flex items-center gap-3 h-16 border-b border-gray-200 dark:border-gray-700 shrink-0 px-[22px] group-hover:px-5 transition-all duration-300">
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-600 text-white shrink-0">
           <GraduationCap className="w-5 h-5" />
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">CTES</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight truncate">Sistemas de Informação · UFRA</p>
+        <div
+          className={cn(
+            "min-w-0 overflow-hidden transition-all duration-300",
+            expanded ? "opacity-100 w-auto" : "opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto"
+          )}
+        >
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight whitespace-nowrap">CTES</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight whitespace-nowrap">Sistemas de Informação · UFRA</p>
         </div>
       </div>
 
+      {/* Nav items */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {items.map((item) => (
           <button
             key={item.key}
             onClick={() => onNavigate(item.key)}
+            title={item.label}
             className={cn(
-              "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+              "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all justify-center group-hover:justify-start",
               current === item.key
                 ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
                 : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
             )}
           >
-            <span className={cn(current === item.key ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-500")}>
+            <span className={cn(current === item.key ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-500", "shrink-0")}>
               {item.icon}
             </span>
-            {item.label}
+            <span
+              className={cn(
+                "whitespace-nowrap transition-all duration-300 overflow-hidden",
+                expanded ? "opacity-100 w-auto" : "opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto"
+              )}
+            >
+              {item.label}
+            </span>
           </button>
         ))}
       </nav>
 
-      <div className="border-t border-gray-200 dark:border-gray-700 p-3">
-        <div className="flex items-center gap-3 px-2 py-2">
+      {/* User footer */}
+      <div className="border-t border-gray-200 dark:border-gray-700 p-3 shrink-0">
+        <div className="flex items-center gap-3 px-2 py-2 justify-center group-hover:justify-start transition-all duration-300">
           <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-sm font-semibold shrink-0">
             {(profile.full_name || profile.email).charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
+          <div
+            className={cn(
+              "min-w-0 overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 w-auto" : "opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto"
+            )}
+          >
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{profile.full_name || "Sem nome"}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{roleLabel}</p>
           </div>
